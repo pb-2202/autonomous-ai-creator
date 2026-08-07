@@ -2,11 +2,13 @@
   "name": "autonomous-ai-creator",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "test": "node --env-file-if-exists=.env.local --experimental-strip-types --test tests/persistence.test.ts",
     "worker": "node --env-file-if-exists=.env.local --experimental-strip-types src/worker/index.ts",
     "db:migrate": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/migrate.ts"
   },

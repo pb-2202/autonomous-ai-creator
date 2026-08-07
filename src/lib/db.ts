@@ -1,4 +1,4 @@
-import { Pool, type PoolClient, type QueryResultRow } from "pg";
+import { Pool, type PoolClient } from "pg";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -38,5 +38,3 @@ export async function withTransaction<T>(operation: (client: PoolClient) => Prom
     client.release();
   }
 }
-
-export type QueryRow = QueryResultRow;

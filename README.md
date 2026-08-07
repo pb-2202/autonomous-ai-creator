@@ -4,7 +4,7 @@ Autonomous AI Creator is a selective AI and technology publishing agent. After a
 
 ## Current development status
 
-The project foundation is in place: a Next.js TypeScript application, PostgreSQL-compatible schema, required API-route scaffolding, and a separate worker boundary. Autonomous topic discovery, AI editorial decisions, memory retrieval, and publishing have not been built yet.
+Phase 2 persistence code is in place: agents, discovered topics, editorial decisions, published posts, source URLs, and agent runs have a PostgreSQL-compatible schema and parameterized data layer. API routes now validate initialization input and read persisted feeds. Real database execution is still pending local credentials. Autonomous topic discovery, AI editorial decisions, memory retrieval, and publishing have not been built yet.
 
 ## Local setup
 
@@ -17,6 +17,8 @@ Prerequisites: Node.js 24+ and a PostgreSQL-compatible database. Docker Desktop 
 5. Run `npm run dev` and open `http://localhost:3000`.
 
 Useful checks: `npm run typecheck`, `npm run build`, and `npm run worker`.
+
+`POST /api/agent/init` expects `{ "persona": { "name": "...", "domain": "..." } }` and returns an `agentId`. `GET /api/agent/feed?agentId=...` returns persisted posts newest first, or `{ "posts": [] }` for an existing agent with no posts.
 
 ## Planned architecture
 

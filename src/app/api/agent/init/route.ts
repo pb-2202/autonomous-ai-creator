@@ -1,14 +1,57 @@
-import { NextResponse } from "next/server";
-import { initializeAgent } from "@/lib/agents";
+import { NextResponse } from "next/server.js";
+import { createAgent } from "../../../../lib/agents.ts";
+import type { Persona } from "../../../../lib/types.ts";
 
 export const runtime = "nodejs";
 
-export async function POST() {
+function readPersona(value: unknown): Persona | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const persona = (value as { persona?: unknown }).persona;
+  if (!persona || typeof persona !== "object") {
+    return null;
+  }
+
+  const { name, domain } = persona as { name?: unknown; domain?: unknown };
+  if (typeof name !== "string" || typeof domain !== "string") {
+    return null;
+  }
+
+  const normalizedName = name.trim();
+  const normalizedDomain = domain.trim();
+  if (!normalizedName || !normalizedDomain || normalizedName.length > 120 || normalizedDomain.length > 160) {
+    return null;
+  }
+
+  return { name: normalizedName, domain: normalizedDomain };
+}
+
+export async function POST(request: Request) {
+  let body: unknown;
+
   try {
-    const agent = await initializeAgent();
-    return NextResponse.json(agent, { status: 201 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to initialize the agent.";
-    return NextResponse.json({ error: message }, { status: 503 });
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid request body. Expected a JSON persona with name and domain." },
+      { status: 400 }
+    );
+  }
+
+  const persona = readPersona(body);
+  if (!persona) {
+    return NextResponse.json(
+      { error: "Invalid request body. Expected a JSON persona with name and domain." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const agent = await createAgent(persona);
+    return NextResponse.json({ agentId: agent.id }, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: "The service is temporarily unavailable." }, { status: 503 });
   }
 }

@@ -19,6 +19,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(error);
+  console.error("Database migration failed. Check DATABASE_URL and PostgreSQL availability.");
   process.exitCode = 1;
 });
