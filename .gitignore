@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Next.js and application build output
+.next/
+out/
+dist/
+build/
+coverage/
+next-env.d.ts
+*.tsbuildinfo
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Local databases and Docker bind-mounted data
+*.db
+*.sqlite
+*.sqlite3
+postgres_data/
+
+# Logs and local tooling
+*.log
