@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { AiService } from "../ai/service.ts";
 import { discoverTopics } from "../discovery/service.ts";
+import { evaluatePendingTopics } from "../editorial/engine.ts";
 import {
   claimDueAgentJob,
   completeAgentRunFailure,
@@ -28,7 +29,8 @@ export type CyclePipelineContext = {
 
 /**
  * Modular autonomous execution pipeline.
- * Phase 5 performs live web discovery, deduplicates, and persists discovered topics.
+ * Phase 6 performs live web discovery, evaluates pending topics using the AI persona policy,
+ * and persists deliberate selected/rejected editorial decisions.
  */
 export async function runAgentCycle(context: CyclePipelineContext): Promise<{ stage: string }> {
   const { agent } = context;
@@ -57,13 +59,29 @@ export async function runAgentCycle(context: CyclePipelineContext): Promise<{ st
     }
   }
 
-  // Step 2: Evaluate topics (Placeholder for Phase 6)
-  // Step 3: Select top topic (Placeholder for Phase 6)
+  // Step 2: Evaluate candidate topics using AI Persona Policy (Phase 6)
+  console.info(`[Worker ${WORKER_ID}] Initiating AI editorial evaluation for agent ${agent.id}...`);
+  const editorialResult = await evaluatePendingTopics(agent, { aiService });
+
+  console.info(
+    `[Worker ${WORKER_ID}] Editorial evaluation completed: Evaluated: ${editorialResult.evaluatedCount}, ` +
+      `Selected: ${editorialResult.selectedCount}, Rejected: ${editorialResult.rejectedCount}, Failed: ${editorialResult.failedCount}.`
+  );
+
+  if (editorialResult.failedTopics.length > 0) {
+    for (const failed of editorialResult.failedTopics) {
+      console.warn(
+        `[Worker ${WORKER_ID}] Topic evaluation failure warning: ${failed.title} (${failed.topicId}) - ${failed.error}`
+      );
+    }
+  }
+
+  // Step 3: Select top topic (Placeholder for Phase 7)
   // Step 4: Generate post text & rationale (Placeholder for Phase 7)
   // Step 5: Check memory / Breeth sync (Placeholder for Phase 8)
   // Step 6: Publish post and sources (Placeholder for Phase 7)
 
-  return { stage: "discovery" };
+  return { stage: "editorial" };
 }
 
 export async function processNextJob(targetAgentId?: string): Promise<boolean> {

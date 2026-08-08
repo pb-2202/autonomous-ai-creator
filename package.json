@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --env-file-if-exists=.env.local --experimental-strip-types --test tests/persistence.test.ts tests/ai.test.ts tests/discovery.test.ts",
+    "test": "node --env-file-if-exists=.env.local --experimental-strip-types --test tests/persistence.test.ts tests/ai.test.ts tests/discovery.test.ts tests/editorial.test.ts",
     "worker": "node --env-file-if-exists=.env.local --experimental-strip-types src/worker/index.ts",
     "db:migrate": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/migrate.ts"
   },

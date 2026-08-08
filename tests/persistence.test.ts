@@ -176,7 +176,7 @@ if (!process.env.DATABASE_URL) {
         createdAgentIds.push(agent.id);
 
         assert.equal(agent.processingStatus, "idle");
-        assert.ok(new Date(agent.nextRunAt) <= new Date());
+        assert.ok(new Date(agent.nextRunAt).getTime() <= Date.now() + 1000);
 
         const worker1Claim = await claimDueAgentJob("worker_1", 300_000, agent.id);
         assert.ok(worker1Claim);

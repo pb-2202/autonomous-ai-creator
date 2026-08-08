@@ -23,12 +23,23 @@ export class MockLlmProvider implements LlmProvider {
 
     // Check if user prompt simulates a topic evaluation
     if (lower.includes("evaluate") || options.schemaDescription.toLowerCase().includes("editorial")) {
-      const isWeakTopic = lower.includes("weak topic") || lower.includes("rejection topic") || lower.includes("low relevance");
+      const isWeakTopic =
+        lower.includes("weak topic") ||
+        lower.includes("rejection topic") ||
+        lower.includes("low relevance") ||
+        lower.includes("irrelevant") ||
+        lower.includes("rumor") ||
+        lower.includes("gadget") ||
+        lower.includes("deals") ||
+        lower.includes("discount") ||
+        lower.includes("shopping") ||
+        lower.includes("consumer app");
+
       const rawJson = isWeakTopic
         ? JSON.stringify({
             decision: "rejected",
             score: 25,
-            reason: "Topic lacks technical novelty and exhibits market hype without empirical benchmarks.",
+            reason: "Topic lacks technical novelty, exhibits low signal-to-noise ratio, or falls outside the agent's core domain.",
             relevance: 3,
             novelty: 2,
             personaFit: 3

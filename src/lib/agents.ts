@@ -491,6 +491,20 @@ export async function getRecentTopics(agentId: string, limit = 20): Promise<Disc
   return result.rows.map(toTopic);
 }
 
+export async function getPendingDiscoveredTopics(agentId: string, limit = 20): Promise<DiscoveredTopic[]> {
+  const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 100);
+  const result = await database().query<TopicRow>(
+    `SELECT id, agent_id, title, summary, source_url, source_name, source_published_at, discovered_at, fingerprint, status
+     FROM discovered_topics
+     WHERE agent_id = $1 AND status = 'discovered'
+     ORDER BY discovered_at ASC, id ASC
+     LIMIT $2`,
+    [agentId, safeLimit]
+  );
+
+  return result.rows.map(toTopic);
+}
+
 export async function saveEditorialDecision(input: SaveEditorialDecisionInput): Promise<EditorialDecision> {
   const reason = requiredText(input.reason, "Decision reason", 1_000);
   if (input.score !== undefined && input.score !== null && (!Number.isFinite(input.score) || input.score < 0 || input.score > 100)) {

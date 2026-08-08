@@ -21,3 +21,24 @@ Requirements:
 6. Worker integration in runAgentCycle() updating run stage to 'discovery'.
 7. Comprehensive tests in tests/discovery.test.ts covering parsing, normalization, deduplication, error handling, DB persistence, and worker integration.
 ```
+
+## Phase 6: AI Editorial Decision Engine
+
+```text
+Phase 6 Goal:
+
+Connect the live discovered topics from Phase 5 to the existing AiService and make the autonomous agent demonstrate genuine editorial judgment.
+
+The flow should become:
+Worker -> Live Discovery -> Discovered Topics -> Persona Evaluation -> Accept/Reject -> Persist Editorial Decision
+
+Requirements:
+1. Retrieve pending topics (status = 'discovered') for the current agent via getPendingDiscoveredTopics().
+2. Evaluate each topic against the agent's persona using AiService.evaluateCandidateTopic().
+3. Demonstrate deliberate rejections for low-signal or off-topic items.
+4. Persist editorial decisions (decision, score, reason) into editorial_decisions table.
+5. Atomically update discovered_topics status to 'selected' or 'rejected'.
+6. Maintain idempotency so already-evaluated topics are not re-evaluated.
+7. Integrate into worker loop returning stage 'editorial'.
+8. Tests covering acceptance, rejection, DB persistence, idempotency, multi-topic cycles, and error handling.
+```
