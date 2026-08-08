@@ -3,6 +3,7 @@ import type { EditorialEvaluationResult } from "../ai/types.ts";
 import { getSelectedTopicsForPublishing, savePublishedPost } from "../lib/agents.ts";
 import { database } from "../lib/db.ts";
 import type { Agent, FeedPost } from "../lib/types.ts";
+import { saveAgentMemory } from "../memory/repository.ts";
 import type { PublishingRunResult } from "./types.ts";
 
 export type PublishSelectedTopicsOptions = {
@@ -68,6 +69,13 @@ export async function publishSelectedTopics(
         rationale: postDraft.rationale,
         sourceUrls
       });
+
+      // Save persistent agent memory and enqueue outbox payload
+      try {
+        await saveAgentMemory(publishedPost, topic);
+      } catch (memoryError) {
+        console.warn(`[Publishing] Warning: Failed to record memory for post ${publishedPost.id}:`, memoryError);
+      }
 
       result.postsGeneratedCount++;
       result.publishedPosts.push(publishedPost);

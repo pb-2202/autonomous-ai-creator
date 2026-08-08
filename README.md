@@ -4,7 +4,7 @@ Autonomous AI Creator is a selective AI and technology publishing agent. After a
 
 ## Current development status
 
-Phase 2 persistence code is in place: agents, discovered topics, editorial decisions, published posts, source URLs, and agent runs have a PostgreSQL-compatible schema and parameterized data layer. API routes now validate initialization input and read persisted feeds. Real database execution is still pending local credentials. Autonomous topic discovery, AI editorial decisions, memory retrieval, and publishing have not been built yet.
+Phase 8 is complete: The Autonomous AI Creator features live web topic discovery from public RSS/Atom feeds, AI persona editorial evaluation with deliberate rejections, source-grounded post generation, atomic PostgreSQL persistence, persistent published memory recording (`agent_memories`), memory-aware content deduplication ("Different source does not mean different idea"), and transactional outbox memory synchronization (`memory_outbox`) via `MockMemoryProvider` or optional `BreethMemoryProvider`.
 
 ## Local setup
 
@@ -16,18 +16,17 @@ Prerequisites: Node.js 24+ and a PostgreSQL-compatible database. Docker Desktop 
 4. Run `npm run db:migrate`.
 5. Run `npm run dev` and open `http://localhost:3000`.
 
-Useful checks: `npm run typecheck`, `npm run build`, and `npm run worker`.
+Useful checks: `npm test`, `npm run typecheck`, `npm run build`, and `npm run worker`.
 
 `POST /api/agent/init` expects `{ "persona": { "name": "...", "domain": "..." } }` and returns an `agentId`. `GET /api/agent/feed?agentId=...` returns persisted posts newest first, or `{ "posts": [] }` for an existing agent with no posts.
 
-## Planned architecture
+## Architecture
 
 - **Next.js API routes** handle initialization and feed reads.
-- **PostgreSQL** is the durable source of truth for agents, jobs, decisions, posts, and sources.
-- **A separate TypeScript worker** will claim scheduled jobs and run the autonomous discovery, evaluation, and publishing loop independently of feed requests.
-- **AI and Breeth memory** will be used only in the future editorial workflow; deterministic database checks retain authority for IDs, ordering, persistence, and duplicate prevention.
+- **PostgreSQL** is the durable source of truth for agents, jobs, decisions, posts, sources, memories, and outbox records.
+- **Autonomous TypeScript worker** claims scheduled jobs (`claimDueAgentJob`), running live discovery, AI evaluation, post generation, memory recording, and outbox sync.
+- **Memory & Outbox Subsystem** records published post memories, passes memory context to editorial evaluation to reject repetitive topics, and syncs outbox payloads (`MEMORY_PROVIDER=mock` default; `BREETH_API_KEY` optional).
 
-See [PROJECT.md](PROJECT.md) for the scoped implementation plan.
 
 ## Development approach
 

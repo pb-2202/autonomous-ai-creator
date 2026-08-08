@@ -61,3 +61,19 @@ Requirements:
 6. Worker integration in runAgentCycle() updating run stage to 'published'.
 7. Test suite covering post drafting, atomic persistence, feed API contract, idempotency, and full worker cycle.
 ```
+
+## Phase 8: Persistent Agent Memory & Sync Outbox
+
+```text
+PHASE 8 — PERSISTENT AGENT MEMORY AND SYNC OUTBOX
+
+Goal: Build a durable memory/outbox layer so the autonomous agent remembers published content and synchronizes with external memory systems.
+
+Requirements:
+1. Persistent published memory in agent_memories table.
+2. Memory retrieval (getRecentAgentMemories) for memory-aware editorial evaluation ("Different source does not automatically mean different idea").
+3. Persistent memory_outbox table tracking sync payload, status (pending, processing, synced, failed), attempts, and last_error.
+4. MemoryProvider abstraction with MockMemoryProvider (default) and BreethMemoryProvider boundary.
+5. Outbox synchronization in worker cycle (syncAgentOutbox) with fault isolation (sync failure does not fail post creation or revert posts).
+6. Comprehensive test suite in tests/memory.test.ts covering memory creation, outbox sync, fault tolerance, memory-aware editorial rejection, and worker cycle integration.
+```

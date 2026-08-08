@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { AiService } from "../ai/service.ts";
 import { discoverTopics } from "../discovery/service.ts";
 import { evaluatePendingTopics } from "../editorial/engine.ts";
-import { publishSelectedTopics } from "../publishing/engine.ts";
 import {
   claimDueAgentJob,
   completeAgentRunFailure,
@@ -10,6 +9,8 @@ import {
   recoverStaleAgentLocks
 } from "../lib/agents.ts";
 import type { Agent, AgentRun } from "../lib/types.ts";
+import { syncAgentOutbox } from "../memory/sync.ts";
+import { publishSelectedTopics } from "../publishing/engine.ts";
 
 const WORKER_ID = `worker_${randomUUID()}`;
 const RUN_INTERVAL_SECONDS = parseInt(process.env.AGENT_RUN_INTERVAL_SECONDS || "300", 10);
@@ -94,7 +95,13 @@ export async function runAgentCycle(context: CyclePipelineContext): Promise<{ st
     }
   }
 
-  // Step 5: Check memory / Breeth sync (Placeholder for Phase 8)
+  // Step 4: Outbox Memory Synchronization (Phase 8)
+  console.info(`[Worker ${WORKER_ID}] Initiating memory outbox synchronization for agent ${agent.id}...`);
+  const syncResult = await syncAgentOutbox(agent.id);
+
+  console.info(
+    `[Worker ${WORKER_ID}] Outbox sync completed: Attempted: ${syncResult.attemptedCount}, Synced: ${syncResult.syncedCount}, Failed: ${syncResult.failedCount}.`
+  );
 
   return { stage: "published" };
 }

@@ -1,4 +1,5 @@
 import type { Persona } from "../lib/types.ts";
+import type { AgentMemory } from "../memory/types.ts";
 import { buildPersona, formatPersonaSystemPrompt } from "./persona/builder.ts";
 import { getLlmProvider } from "./providers/factory.ts";
 import { parseEditorialDecision, parseGeneratedPost } from "./schemas/validators.ts";
@@ -35,11 +36,21 @@ export class AiService {
     return this.provider.generateText({ messages, temperature: 0.3 });
   }
 
-  async evaluateCandidateTopic(topic: CandidateTopicInput): Promise<EditorialEvaluationResult> {
+  async evaluateCandidateTopic(
+    topic: CandidateTopicInput,
+    recentMemories?: AgentMemory[]
+  ): Promise<EditorialEvaluationResult> {
     const systemPrompt = formatPersonaSystemPrompt(
       this.persona,
       "Candidate Topic Editorial Evaluation"
     );
+
+    let memoryContext = "None (No recently published content).";
+    if (recentMemories && recentMemories.length > 0) {
+      memoryContext = recentMemories
+        .map((m, idx) => `${idx + 1}. Title: "${m.topicTitle}" | Post: "${m.postText.slice(0, 80)}..."`)
+        .join("\n");
+    }
 
     const userPrompt = `Evaluate the following candidate technology topic for potential publication.
 
@@ -48,10 +59,14 @@ Candidate Details:
 - Summary: ${topic.summary || "N/A"}
 - Source URL: ${topic.sourceUrl || "N/A"}
 
+Recently Published Memory Context:
+${memoryContext}
+
 Evaluation Criteria:
 1. Relevance to domain (${this.persona.domain}) and target audience.
 2. Novelty and technical substance (Filter out market hype, speculative buzzwords, or superficial announcements).
 3. Alignment with core editorial belief: "New does not automatically mean important."
+4. Memory Repetition Check: "Different source does not automatically mean different idea." If the candidate topic is substantially repetitive with recently published content, REJECT it or downgrade its score.
 
 You MUST return a JSON object with this exact shape:
 {

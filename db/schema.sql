@@ -148,3 +148,37 @@ CREATE TABLE IF NOT EXISTS agent_runs (
 );
 
 CREATE INDEX IF NOT EXISTS agent_runs_recent_index ON agent_runs (agent_id, started_at DESC, id DESC);
+
+CREATE TABLE IF NOT EXISTS agent_memories (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  topic_title TEXT NOT NULL,
+  summary TEXT,
+  post_text TEXT NOT NULL,
+  rationale TEXT NOT NULL,
+  source_urls TEXT[] NOT NULL DEFAULT '{}',
+  fingerprint TEXT NOT NULL,
+  published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  sync_status TEXT NOT NULL DEFAULT 'pending' CHECK (sync_status IN ('pending', 'processing', 'synced', 'failed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (agent_id, post_id)
+);
+
+CREATE INDEX IF NOT EXISTS agent_memories_recent_index ON agent_memories (agent_id, published_at DESC, id DESC);
+
+CREATE TABLE IF NOT EXISTS memory_outbox (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  memory_id TEXT NOT NULL REFERENCES agent_memories(id) ON DELETE CASCADE,
+  payload JSONB NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'synced', 'failed')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_attempt_at TIMESTAMPTZ,
+  synced_at TIMESTAMPTZ,
+  last_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (agent_id, memory_id)
+);
+
+CREATE INDEX IF NOT EXISTS memory_outbox_status_index ON memory_outbox (status, attempts, created_at ASC);

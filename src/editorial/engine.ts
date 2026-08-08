@@ -1,6 +1,7 @@
 import { AiService } from "../ai/service.ts";
 import { getPendingDiscoveredTopics, saveEditorialDecision } from "../lib/agents.ts";
 import type { Agent, EditorialDecision } from "../lib/types.ts";
+import { getRecentAgentMemories } from "../memory/repository.ts";
 import type { EditorialRunResult } from "./types.ts";
 
 export type EvaluatePendingTopicsOptions = {
@@ -16,6 +17,7 @@ export async function evaluatePendingTopics(
   const aiService = options?.aiService ?? new AiService(agent.persona);
 
   const pendingTopics = await getPendingDiscoveredTopics(agent.id, limit);
+  const recentMemories = await getRecentAgentMemories(agent.id, 10);
 
   const result: EditorialRunResult = {
     evaluatedCount: 0,
@@ -28,11 +30,14 @@ export async function evaluatePendingTopics(
 
   for (const topic of pendingTopics) {
     try {
-      const evaluation = await aiService.evaluateCandidateTopic({
-        title: topic.title,
-        summary: topic.summary,
-        sourceUrl: topic.sourceUrl
-      });
+      const evaluation = await aiService.evaluateCandidateTopic(
+        {
+          title: topic.title,
+          summary: topic.summary,
+          sourceUrl: topic.sourceUrl
+        },
+        recentMemories
+      );
 
       const decision: EditorialDecision = await saveEditorialDecision({
         topicId: topic.id,
