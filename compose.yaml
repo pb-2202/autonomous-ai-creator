@@ -9,6 +9,42 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autonomous_creator -d autonomous_creator"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm start
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://autonomous_creator:autonomous_creator@postgres:5432/autonomous_creator
+      AI_PROVIDER: mock
+      MEMORY_PROVIDER: mock
+      AGENT_RUN_INTERVAL_SECONDS: 300
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run worker
+    environment:
+      DATABASE_URL: postgresql://autonomous_creator:autonomous_creator@postgres:5432/autonomous_creator
+      AI_PROVIDER: mock
+      MEMORY_PROVIDER: mock
+      AGENT_RUN_INTERVAL_SECONDS: 300
+      WORKER_POLL_INTERVAL_MS: 5000
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

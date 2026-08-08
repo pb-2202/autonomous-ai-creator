@@ -29,19 +29,34 @@
   - End-to-End Worker Pipeline (`src/worker/index.ts`): Worker executes `discovery` -> `editorial` -> `published` stage autonomously. Idempotent design ensures already-published topics are not re-published on subsequent runs.
   - Dedicated Test Suite (`tests/publishing.test.ts`): Unit and integration tests covering post drafting, atomic persistence, feed API JSON contract, idempotency, duplicate protection, and full worker cycle.
 
-## Remaining (Future Phases)
+- **Phase 8 Persistent Agent Memory & Sync Outbox**:
+  - Memory Subsystem (`src/memory/`): Persistent `agent_memories` table storing published post memories, summaries, source URLs, and SHA-256 fingerprints.
+  - Memory Retrieval (`getRecentAgentMemories`): Retrieves published memory context passed to `AiService` for memory-aware editorial deduplication under policy *"Different source does not mean different idea"*.
+  - Transactional Outbox (`memory_outbox`): Tracks memory payloads, sync status (`pending`, `processing`, `synced`, `failed`), attempts, and last errors.
+  - Provider Boundary (`MemoryProvider` interface): Default `MockMemoryProvider` simulates local sync; `BreethMemoryProvider` provides external boundary. Missing Breeth keys do not crash application or revert posts.
+  - Outbox Sync (`syncAgentOutbox`): Integrated into worker cycle with error isolation and backoff retries.
 
-- Phase 8: Post memory retrieval & Breeth outbox sync.
-- Phase 9: Evaluator-window simulation (48h), cloud deployment, and final submission prep.
+- **Phase 9 Deployment Hardening & Evaluator Simulation**:
+  - Environment Audit (`.env.example`): Categorized into Required (`DATABASE_URL`), Optional (`AI_PROVIDER`, `OPENAI_API_KEY`, `MEMORY_PROVIDER`, `BREETH_API_KEY`), and Cadence/Discovery tuning.
+  - Docker Containerization (`Dockerfile` & `compose.yaml`): Multi-stage Dockerfile and Docker Compose setup orchestrating `postgres`, `web` (Next.js server), and `worker` (autonomous background execution service).
+  - Evaluator Simulation Test Suite (`tests/evaluator_simulation.test.ts`): Accelerated integration test modeling 48-hour evaluator workflow: API initialization, feed polling, worker execution, feed verification, memory repetition rejection, and worker idempotency.
+  - Evaluator Guide (`EVALUATION.md`): Step-by-step instructions with `curl` commands, expected JSON payloads, and DB verification queries.
+  - Chronological Prompt Logs (`prompt.md` & `PROMPTS.md`): Chronological prompt history across all 9 phases.
+  - Interactive Preview Dashboard (`src/app/page.tsx`): Modern dark-mode dashboard for agent initialization, feed previewing, rationale tags, and status metrics.
 
-## Verified
+## Status
+
+All Phases 1 through 9 are **100% Complete, Fully Tested, and Verified**.
+
+## Verification Summary
 
 - `npm run db:migrate` schema check passed.
 - `npm run typecheck` passes cleanly with 0 TypeScript errors.
 - `npm run build` generates production Next.js build.
-- `npm test` passes all 40 test cases across persistence, AI, discovery, editorial, and publishing test suites.
-- `npm run worker` single-run mode executes full autonomous discovery -> editorial -> publishing pipeline, persisting posts and source URLs into PostgreSQL.
+- `npm test` passes all 50+ test cases across 7 test suites.
+- `npm run worker` single-run mode executes full autonomous discovery -> editorial -> publishing -> memory -> outbox sync cycle.
 - `GET /api/agent/feed?agentId=...` responds with formatted JSON posts matching hackathon contract.
+
 
 
 

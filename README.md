@@ -1,33 +1,116 @@
 # Autonomous AI Creator
 
-Autonomous AI Creator is a selective AI and technology publishing agent. After an evaluator initializes it once, the finished system must independently discover timely topics, decide which ones meet its editorial standards, remember prior work, publish source-backed posts over time, and expose the complete feed through a read-only API.
+**Autonomous AI Creator** is a selective AI and technology publishing agent built for the ABTalks Vibe Code Hackathon.
 
-## Current development status
+After an evaluator initializes an agent **once** via `POST /api/agent/init`, the system runs completely autonomously: it discovers timely AI & tech developments from live web RSS/Atom feeds, evaluates candidate topics against persona editorial standards, rejects repetitive or low-signal announcements, drafts source-grounded posts with explicit rationale, records durable memories, and exposes an immutable JSON feed via `GET /api/agent/feed?agentId=...`.
 
-Phase 8 is complete: The Autonomous AI Creator features live web topic discovery from public RSS/Atom feeds, AI persona editorial evaluation with deliberate rejections, source-grounded post generation, atomic PostgreSQL persistence, persistent published memory recording (`agent_memories`), memory-aware content deduplication ("Different source does not mean different idea"), and transactional outbox memory synchronization (`memory_outbox`) via `MockMemoryProvider` or optional `BreethMemoryProvider`.
+---
 
-## Local setup
+## Key Features & Editorial Philosophy
 
-Prerequisites: Node.js 24+ and a PostgreSQL-compatible database. Docker Desktop is optional and supported through `compose.yaml`.
+1. **Autonomous Operation**: Runs continuously via a background worker process (`src/worker/index.ts`) using PostgreSQL job claiming (`FOR UPDATE SKIP LOCKED`). No human interaction is required after initialization.
+2. **Selective Editorial Stance**: Implements two core editorial beliefs:
+   - *"New does not automatically mean important."* (Filters hype, speculative rumors, and trivial announcements).
+   - *"Different source does not automatically mean different idea."* (Uses Phase 8 memory retrieval to reject repetitive topics across cycles).
+3. **Source Grounding**: Every published post links directly to its origin URL and provides explicit editorial rationale.
+4. **Fault Tolerant Outbox Sync**: Includes a transactional outbox (`memory_outbox`) for long-term memory sync (`MockMemoryProvider` default; `BreethMemoryProvider` boundary). Breeth integration is optional—if unconfigured, posts remain safely published and retries are logged.
 
-1. Copy `.env.example` to `.env.local`.
-2. Start a database with `docker compose up -d postgres`, or set `DATABASE_URL` to an existing PostgreSQL-compatible instance.
-3. Run `npm install`.
-4. Run `npm run db:migrate`.
-5. Run `npm run dev` and open `http://localhost:3000`.
+---
 
-Useful checks: `npm test`, `npm run typecheck`, `npm run build`, and `npm run worker`.
+## Evaluator Quick Start
 
-`POST /api/agent/init` expects `{ "persona": { "name": "...", "domain": "..." } }` and returns an `agentId`. `GET /api/agent/feed?agentId=...` returns persisted posts newest first, or `{ "posts": [] }` for an existing agent with no posts.
+### 1. Prerequisites
+- **Node.js**: `v24.0.0+`
+- **PostgreSQL**: `16+` (or Docker Desktop)
 
-## Architecture
+### 2. Environment & Database Setup
+```bash
+# 1. Clone repository & install dependencies
+npm install
 
-- **Next.js API routes** handle initialization and feed reads.
-- **PostgreSQL** is the durable source of truth for agents, jobs, decisions, posts, sources, memories, and outbox records.
-- **Autonomous TypeScript worker** claims scheduled jobs (`claimDueAgentJob`), running live discovery, AI evaluation, post generation, memory recording, and outbox sync.
-- **Memory & Outbox Subsystem** records published post memories, passes memory context to editorial evaluation to reject repetitive topics, and syncs outbox payloads (`MEMORY_PROVIDER=mock` default; `BREETH_API_KEY` optional).
+# 2. Configure environment (mock AI & mock memory defaults ready for offline run)
+cp .env.example .env.local
 
+# 3. Start PostgreSQL container
+docker compose up -d postgres
 
-## Development approach
+# 4. Run idempotent database migrations
+npm run db:migrate
+```
 
-This project is being developed through AI-assisted, vibe-coding collaboration. Changes are kept small, readable, and verified with local type checks and production builds as the agent evolves.
+### 3. Launch Services
+- **Terminal 1** (Web Server):
+  ```bash
+  npm run dev
+  ```
+- **Terminal 2** (Autonomous Background Worker):
+  ```bash
+  npm run worker
+  ```
+
+---
+
+## API Contract
+
+### Initialize Creator Agent
+```bash
+POST /api/agent/init
+Content-Type: application/json
+
+{
+  "persona": {
+    "name": "AI Security Analyst",
+    "domain": "AI Security & Systems Engineering"
+  }
+}
+```
+
+#### Response (HTTP 201):
+```json
+{
+  "agentId": "agent_a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+---
+
+### Read Published Feed
+```bash
+GET /api/agent/feed?agentId=agent_a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+#### Response (HTTP 200 OK):
+```json
+{
+  "posts": [
+    {
+      "id": "post_12345678-abcd-ef01-2345-6789abcdef01",
+      "createdAt": "2026-08-08T10:30:00.000Z",
+      "text": "OpenAI published research on secure sandboxing for LLM agents...",
+      "rationale": "High technical relevance: Verifiable system-level security architecture for autonomous agents.",
+      "sources": [
+        "https://openai.com/news/rss.xml"
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## Automated Verification & Testing
+
+Run full automated typecheck, test suite, and production build:
+```bash
+npm run typecheck
+npm test
+npm run build
+```
+
+Single-pass worker verification:
+```bash
+WORKER_SINGLE_RUN=true npm run worker
+```
+
+For step-by-step evaluator instructions, see [EVALUATION.md](EVALUATION.md).
+For development prompt history, see [PROMPTS.md](PROMPTS.md) and [prompt.md](prompt.md).

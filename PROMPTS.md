@@ -77,3 +77,20 @@ Requirements:
 5. Outbox synchronization in worker cycle (syncAgentOutbox) with fault isolation (sync failure does not fail post creation or revert posts).
 6. Comprehensive test suite in tests/memory.test.ts covering memory creation, outbox sync, fault tolerance, memory-aware editorial rejection, and worker cycle integration.
 ```
+
+## Phase 9: Deployment Hardening & Evaluator Simulation
+
+```text
+PHASE 9 — DEPLOYMENT HARDENING AND EVALUATOR SIMULATION
+
+Goal: Make system deployable and test it as an external evaluator would.
+
+Requirements:
+1. Environment configuration audit in .env.example (Required vs Optional vs Tuning).
+2. Multi-stage Dockerfile and Docker Compose setup for web and background worker services.
+3. Accelerated 48-hour evaluator simulation test in tests/evaluator_simulation.test.ts.
+4. Step-by-step evaluator testing guide in EVALUATION.md.
+5. Interactive preview dashboard in src/app/page.tsx for initializing agents and viewing live feeds.
+6. Documentation updates in README.md, DEVELOPMENT_STATUS.md, and PROMPTS.md/prompt.md.
+7. Verification across npm run db:migrate, npm run typecheck, npm test, npm run build, and worker single-run mode.
+```
