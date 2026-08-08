@@ -21,6 +21,11 @@ if (!process.env.DATABASE_URL) {
         assert.ok(provider instanceof GroqLlmProvider);
       });
 
+      await context.test("GroqLlmProvider accepts comma-separated multi-keys in constructor", async () => {
+        const provider = new GroqLlmProvider("key1, key2 ,key3");
+        assert.equal(provider.name, "groq");
+      });
+
       await context.test("GroqLlmProvider throws actionable error when GROQ_API_KEY is missing", async () => {
         const provider = new GroqLlmProvider(""); // empty API key
         await assert.rejects(
