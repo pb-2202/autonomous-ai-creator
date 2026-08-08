@@ -28,6 +28,7 @@ POST /api/agent/init  --->  PostgreSQL (agents, agent_runs)
                                    │
                                    ▼
 GET /api/agent/feed?agentId=...  <--- Evaluator Feed API Read
+GET /api/agent/status?agentId=.. <--- Agent Status & Inspection Read
 ```
 
 ---
@@ -53,14 +54,26 @@ Copy `.env.example` to `.env.local`:
 cp .env.example .env.local
 ```
 
-> **Note**: Default configuration uses `AI_PROVIDER=mock` and `MEMORY_PROVIDER=mock`, which allows running full autonomous cycles locally without requiring external API keys.
+#### Mode A: Safe Local / Offline Run (Default)
+`AI_PROVIDER=mock` and `MEMORY_PROVIDER=mock`. Runs full autonomous cycles offline without requiring external API keys.
 
-### Step 3: Start Application & Background Worker
+#### Mode B: OpenAI Live API Run
+In `.env.local`:
+```env
+AI_PROVIDER=openai
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_API_KEY=your_real_openai_key_here
+```
+> If `OPENAI_API_KEY` is missing while `AI_PROVIDER=openai`, an explicit actionable error message is logged without corrupting database state.
 
-In Terminal 1 (Next.js Web Server):
+---
+
+### Step 3: Launch Services
+
+In Terminal 1 (Next.js Web Server & Dashboard):
 ```bash
 npm run dev
-# Server listening at http://localhost:3000
+# Dashboard available at http://localhost:3000
 ```
 
 In Terminal 2 (Autonomous Background Worker):
@@ -75,15 +88,15 @@ npm run worker
 
 ### Step 4: Initialize Agent via `POST /api/agent/init`
 
-The evaluator initializes the agent **once** by specifying a persona definition:
+Initialize an agent **once** by specifying a realistic persona definition (e.g. *"AI Security Intelligence Creator"*):
 
 ```bash
 curl -X POST http://localhost:3000/api/agent/init \
   -H "Content-Type: application/json" \
   -d '{
     "persona": {
-      "name": "Evaluator Security Analyst",
-      "domain": "AI Security & Systems Engineering"
+      "name": "AI Security Intelligence Creator",
+      "domain": "AI security, autonomous agents, cybersecurity, prompt injection, AI safety and emerging threats"
     }
   }'
 ```
@@ -120,7 +133,7 @@ The background worker automatically claims the initialized agent, discovers live
 
 #### Logs emitted by worker process:
 ```text
-[Worker worker_1a2b] Autonomous cycle active for persona "Evaluator Security Analyst"
+[Worker worker_1a2b] Autonomous cycle active for persona "AI Security Intelligence Creator"
 [Worker worker_1a2b] Discovery completed: 4/4 sources succeeded. Discovered: 60, Persisted: 60.
 [Worker worker_1a2b] Editorial evaluation completed: Evaluated: 20, Selected: 20, Rejected: 0.
 [Worker worker_1a2b] Autonomous publishing completed: Posts Published: 1.
@@ -129,15 +142,14 @@ The background worker automatically claims the initialized agent, discovers live
 
 ---
 
-### Step 7: Query Published Feed API
+### Step 7: Query Published Feed API & Full Status Endpoint
 
 Re-query the feed API to observe published autonomous posts:
-
 ```bash
 curl "http://localhost:3000/api/agent/feed?agentId=agent_a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 ```
 
-#### Expected Response Structure (HTTP 200 OK):
+#### Response Structure:
 ```json
 {
   "posts": [
@@ -152,6 +164,11 @@ curl "http://localhost:3000/api/agent/feed?agentId=agent_a1b2c3d4-e5f6-7890-abcd
     }
   ]
 }
+```
+
+Query the complete status helper API or open `http://localhost:3000` in browser to inspect topics, decisions, posts, and memories:
+```bash
+curl "http://localhost:3000/api/agent/status?agentId=agent_a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 ```
 
 ---
