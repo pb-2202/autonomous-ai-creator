@@ -10,8 +10,8 @@ export class OpenAiLlmProvider implements LlmProvider {
   private readonly model: string;
 
   constructor(apiKey?: string, model?: string) {
-    this.apiKey = (apiKey || process.env.OPENAI_API_KEY || "").trim();
-    this.model = (model || process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
+    this.apiKey = (apiKey ?? process.env.OPENAI_API_KEY ?? "").trim();
+    this.model = (model ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini").trim();
   }
 
   private ensureApiKey(): void {

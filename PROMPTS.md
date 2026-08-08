@@ -2,6 +2,63 @@
 
 This document records the actual prompts used during the AI-assisted vibe coding of the Autonomous AI Creator project.
 
+---
+
+## Phase 1: Next.js Foundation and Required API Endpoints
+
+```text
+PHASE 1 — NEXT.JS FOUNDATION & API CONTRACT
+
+Goal: Initialize Next.js app structure, TypeScript definitions, database schema outline, and required API routes.
+
+Requirements:
+- POST /api/agent/init accepting persona definition and returning agentId.
+- GET /api/agent/feed?agentId=... returning posts array ordered newest first.
+```
+
+---
+
+## Phase 2: PostgreSQL Persistence Layer
+
+```text
+PHASE 2 — POSTGRESQL PERSISTENCE LAYER
+
+Goal: Build parameterized database persistence for agents, discovered topics, editorial decisions, posts, sources, and agent runs.
+
+Requirements:
+- PostgreSQL connection pool (pg).
+- Schema migrations for agents, discovered_topics, editorial_decisions, posts, post_sources, agent_runs.
+- Parameterized query functions with transaction support.
+```
+
+---
+
+## Phase 3: Autonomous Worker Execution Engine
+
+```text
+PHASE 3 — AUTONOMOUS WORKER EXECUTION FOUNDATION
+
+Goal: Build an independent TypeScript worker process claiming due agent jobs with PostgreSQL locking and exponential backoff retry handling.
+
+Requirements:
+- Atomic job claiming via FOR UPDATE SKIP LOCKED.
+- Stale lock recovery.
+- Resilient polling loop.
+```
+
+---
+
+## Phase 4: AI Intelligence & Persona Engine
+
+```text
+PHASE 4 — AI INTELLIGENCE FOUNDATION
+
+Goal: Build persona definition builder, LlmProvider abstraction (MockLlmProvider & OpenAiLlmProvider), JSON block schema validators, and AiService.
+```
+
+---
+
+
 ## Phase 5: Live Web Discovery
 
 ```text

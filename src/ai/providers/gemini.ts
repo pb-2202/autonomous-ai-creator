@@ -22,8 +22,8 @@ export class GeminiLlmProvider implements LlmProvider {
   private readonly model: string;
 
   constructor(apiKey?: string, model?: string) {
-    this.apiKey = (apiKey || process.env.GEMINI_API_KEY || "").trim();
-    this.model = (model || process.env.GEMINI_MODEL || "gemini-2.5-flash").trim();
+    this.apiKey = (apiKey ?? process.env.GEMINI_API_KEY ?? "").trim();
+    this.model = (model ?? process.env.GEMINI_MODEL ?? "gemini-2.5-flash").trim();
   }
 
   private ensureApiKey(): void {

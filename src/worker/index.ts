@@ -167,8 +167,17 @@ export async function startWorkerLoop(): Promise<void> {
   }
 }
 
-// Automatically start worker loop if invoked directly from CLI
-if (process.argv[1]?.endsWith("worker/index.ts") || process.argv[1]?.endsWith("worker/index.js")) {
+// Automatically start worker loop if invoked directly from CLI.
+// Windows absolute paths and path separators differ from Unix-style strings,
+// so normalize the launch path before checking whether this script is the worker entrypoint.
+const invokedScriptPath = (process.argv[1] ?? "").replace(/\\/g, "/");
+const isDirectWorkerInvocation =
+  invokedScriptPath.endsWith("/src/worker/index.ts") ||
+  invokedScriptPath.endsWith("/src/worker/index.js") ||
+  invokedScriptPath.endsWith("worker/index.ts") ||
+  invokedScriptPath.endsWith("worker/index.js");
+
+if (isDirectWorkerInvocation) {
   startWorkerLoop().catch((error) => {
     console.error(`[Worker ${WORKER_ID}] Fatal error:`, error);
     process.exitCode = 1;
