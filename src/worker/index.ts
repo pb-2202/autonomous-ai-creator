@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { AiService } from "../ai/service.ts";
 import {
   claimDueAgentJob,
   completeAgentRunFailure,
@@ -25,11 +26,20 @@ export type CyclePipelineContext = {
 };
 
 /**
- * Modular autonomous execution pipeline scaffold.
- * Future phases will replace placeholders with real AI & discovery operations.
+ * Modular autonomous execution pipeline.
+ * Phase 4 initializes the AiService & persona policy layer cleanly within the worker cycle.
  */
 export async function runAgentCycle(context: CyclePipelineContext): Promise<{ stage: string }> {
   const { agent } = context;
+
+  // Initialize intelligence foundation for the agent persona
+  const aiService = new AiService(agent.persona);
+  const greeting = await aiService.generatePersonaGreeting();
+
+  console.info(
+    `[Worker ${WORKER_ID}] Autonomous intelligence cycle active for persona "${aiService.persona.name}" (${agent.id}). Tagline: "${aiService.persona.tagline}".`
+  );
+  console.info(`[Worker ${WORKER_ID}] Persona Readiness Check: ${greeting}`);
 
   // Step 1: Discover topics (Placeholder for Phase 5)
   // Step 2: Evaluate topics (Placeholder for Phase 6)
@@ -38,7 +48,6 @@ export async function runAgentCycle(context: CyclePipelineContext): Promise<{ st
   // Step 5: Check memory / Breeth sync (Placeholder for Phase 8)
   // Step 6: Publish post and sources (Placeholder for Phase 7)
 
-  console.info(`[Worker ${WORKER_ID}] Autonomous cycle reached for agent "${agent.persona.name}" (${agent.id}).`);
   return { stage: "complete" };
 }
 
