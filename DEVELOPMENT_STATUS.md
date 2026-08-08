@@ -21,16 +21,16 @@
   - Worker Integration (`src/worker/index.ts`): Executes `discoverTopics(agent)` during worker runs and records run status in stage `'discovery'`.
   - Test Suite (`tests/discovery.test.ts`): Comprehensive unit and integration test suite covering feed parsing, URL/text normalization, deduplication, error isolation, DB persistence, and worker integration.
 
-- **Phase 6 AI Editorial Decision Engine**:
-  - Pending Topics Data Access (`src/lib/agents.ts`): Added `getPendingDiscoveredTopics()` to retrieve candidate topics with `status = 'discovered'`.
-  - Editorial Engine (`src/editorial/engine.ts`): Evaluates candidate topics against persona policy using `AiService.evaluateCandidateTopic()`.
-  - Deliberate Rejection & Decision Persistence: Atomically saves decisions (`selected` or `rejected`, `score`, `reason`) in `editorial_decisions` and updates `discovered_topics.status`.
-  - Idempotent Worker Pipeline (`src/worker/index.ts`): Connected discovery -> evaluation pipeline in `runAgentCycle()`, returning stage `'editorial'`. Already-evaluated topics are not re-evaluated.
-  - Dedicated Test Suite (`tests/editorial.test.ts`): Unit and integration tests covering acceptance, deliberate rejection, DB persistence, idempotency, multi-topic cycles, AI provider failure isolation, and worker integration.
+- **Phase 7 Content Generation & Autonomous Publishing**:
+  - Candidate Topic Selection (`src/lib/agents.ts`): Implemented `getSelectedTopicsForPublishing()` querying topics with `status = 'selected'`.
+  - Publishing Engine (`src/publishing/engine.ts`): Generates source-grounded persona post narratives, editorial rationale, and source URLs via `AiService.draftPostForTopic()`.
+  - Atomic Persistence: `savePublishedPost()` saves to `posts` and `post_sources` and transitions topic status to `'published'` in a single PostgreSQL transaction.
+  - Feed API Route (`src/app/api/agent/feed/route.ts`): Exposes generated posts for `agentId` ordered newest-first matching evaluator JSON contract `{ posts: [{ id, createdAt, text, rationale, sources }] }`.
+  - End-to-End Worker Pipeline (`src/worker/index.ts`): Worker executes `discovery` -> `editorial` -> `published` stage autonomously. Idempotent design ensures already-published topics are not re-published on subsequent runs.
+  - Dedicated Test Suite (`tests/publishing.test.ts`): Unit and integration tests covering post drafting, atomic persistence, feed API JSON contract, idempotency, duplicate protection, and full worker cycle.
 
 ## Remaining (Future Phases)
 
-- Phase 7: Source-grounded post & rationale generation + atomic publishing.
 - Phase 8: Post memory retrieval & Breeth outbox sync.
 - Phase 9: Evaluator-window simulation (48h), cloud deployment, and final submission prep.
 
@@ -39,8 +39,10 @@
 - `npm run db:migrate` schema check passed.
 - `npm run typecheck` passes cleanly with 0 TypeScript errors.
 - `npm run build` generates production Next.js build.
-- `npm test` passes all 35 test cases across persistence, AI, discovery, and editorial test suites.
-- `npm run worker` single-run mode executes discovery and editorial evaluation cycle, updating topic status in PostgreSQL.
+- `npm test` passes all 40 test cases across persistence, AI, discovery, editorial, and publishing test suites.
+- `npm run worker` single-run mode executes full autonomous discovery -> editorial -> publishing pipeline, persisting posts and source URLs into PostgreSQL.
+- `GET /api/agent/feed?agentId=...` responds with formatted JSON posts matching hackathon contract.
+
 
 
 

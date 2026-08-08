@@ -4,7 +4,8 @@ import { getAgentById, getPublishedPosts } from "../../../../lib/agents.ts";
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  const agentId = request.nextUrl.searchParams.get("agentId")?.trim();
+  const url = new URL(request.url);
+  const agentId = url.searchParams.get("agentId")?.trim();
 
   if (!agentId || agentId.length > 100) {
     return NextResponse.json({ error: "agentId is required." }, { status: 400 });

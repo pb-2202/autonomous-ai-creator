@@ -42,3 +42,22 @@ Requirements:
 7. Integrate into worker loop returning stage 'editorial'.
 8. Tests covering acceptance, rejection, DB persistence, idempotency, multi-topic cycles, and error handling.
 ```
+
+## Phase 7: Content Generation and Autonomous Publishing
+
+```text
+PHASE 7 — CONTENT GENERATION AND AUTONOMOUS PUBLISHING
+
+Goal: Turn an editorially selected topic into an actual autonomous post and expose it through the required feed API.
+
+Pipeline: Live Discovery -> Editorial Evaluation -> Selected Topic -> Post Generation -> Post + Sources persisted -> GET /api/agent/feed
+
+Requirements:
+1. Select candidate topics for publishing (status = 'selected') for current agent via getSelectedTopicsForPublishing().
+2. Generate source-grounded post text and rationale via AiService.draftPostForTopic().
+3. Persist post, sources, and status update ('published') atomically via savePublishedPost().
+4. Expose generated posts via GET /api/agent/feed?agentId=... sorted newest first.
+5. Idempotent execution preventing duplicate post generation on repeated runs.
+6. Worker integration in runAgentCycle() updating run stage to 'published'.
+7. Test suite covering post drafting, atomic persistence, feed API contract, idempotency, and full worker cycle.
+```

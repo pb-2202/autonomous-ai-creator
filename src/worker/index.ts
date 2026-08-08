@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { AiService } from "../ai/service.ts";
 import { discoverTopics } from "../discovery/service.ts";
 import { evaluatePendingTopics } from "../editorial/engine.ts";
+import { publishSelectedTopics } from "../publishing/engine.ts";
 import {
   claimDueAgentJob,
   completeAgentRunFailure,
@@ -29,8 +30,8 @@ export type CyclePipelineContext = {
 
 /**
  * Modular autonomous execution pipeline.
- * Phase 6 performs live web discovery, evaluates pending topics using the AI persona policy,
- * and persists deliberate selected/rejected editorial decisions.
+ * Phase 7 performs live web discovery, evaluates pending candidate topics,
+ * drafts source-grounded persona posts for selected topics, and publishes them.
  */
 export async function runAgentCycle(context: CyclePipelineContext): Promise<{ stage: string }> {
   const { agent } = context;
@@ -76,12 +77,26 @@ export async function runAgentCycle(context: CyclePipelineContext): Promise<{ st
     }
   }
 
-  // Step 3: Select top topic (Placeholder for Phase 7)
-  // Step 4: Generate post text & rationale (Placeholder for Phase 7)
-  // Step 5: Check memory / Breeth sync (Placeholder for Phase 8)
-  // Step 6: Publish post and sources (Placeholder for Phase 7)
+  // Step 3: Select Candidate & Generate Source-Grounded Post (Phase 7)
+  console.info(`[Worker ${WORKER_ID}] Initiating autonomous post publishing for agent ${agent.id}...`);
+  const publishingResult = await publishSelectedTopics(agent, { aiService, maxPostsPerCycle: 1 });
 
-  return { stage: "editorial" };
+  console.info(
+    `[Worker ${WORKER_ID}] Autonomous publishing completed: Candidates Found: ${publishingResult.candidateTopicsFound}, ` +
+      `Posts Published: ${publishingResult.postsGeneratedCount}, Failures: ${publishingResult.failedCount}.`
+  );
+
+  if (publishingResult.failedTopics.length > 0) {
+    for (const failed of publishingResult.failedTopics) {
+      console.warn(
+        `[Worker ${WORKER_ID}] Post generation failure warning: ${failed.title} (${failed.topicId}) - ${failed.error}`
+      );
+    }
+  }
+
+  // Step 5: Check memory / Breeth sync (Placeholder for Phase 8)
+
+  return { stage: "published" };
 }
 
 export async function processNextJob(targetAgentId?: string): Promise<boolean> {
