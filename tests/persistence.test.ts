@@ -4,17 +4,22 @@ import { NextRequest } from "next/server.js";
 import { GET } from "../src/app/api/agent/feed/route.ts";
 import { POST } from "../src/app/api/agent/init/route.ts";
 import {
+  claimDueAgentJob,
+  completeAgentRunFailure,
+  completeAgentRunSuccess,
   createAgent,
   getAgentById,
   getPublishedPosts,
   getRecentAgentActivity,
   getRecentTopics,
   recordAgentRun,
+  recoverStaleAgentLocks,
   saveDiscoveredTopic,
   saveEditorialDecision,
   savePublishedPost
 } from "../src/lib/agents.ts";
 import { database } from "../src/lib/db.ts";
+import { processNextJob } from "../src/worker/index.ts";
 
 test("POST /api/agent/init rejects an invalid persona", async () => {
   const response = await POST(
@@ -164,6 +169,86 @@ if (!process.env.DATABASE_URL) {
         );
         assert.equal(feedResponse.status, 200);
         assert.deepEqual(await feedResponse.json(), { posts: [] });
+      });
+
+      await context.test("claims due agent job and prevents concurrent claim", async () => {
+        const agent = await createAgent({ name: "Claim Test", domain: "Concurrency" });
+        createdAgentIds.push(agent.id);
+
+        assert.equal(agent.processingStatus, "idle");
+        assert.ok(new Date(agent.nextRunAt) <= new Date());
+
+        const worker1Claim = await claimDueAgentJob("worker_1", 300_000, agent.id);
+        assert.ok(worker1Claim);
+        assert.equal(worker1Claim.agent.id, agent.id);
+        assert.equal(worker1Claim.agent.processingStatus, "running");
+        assert.equal(worker1Claim.agent.lockedBy, "worker_1");
+        assert.equal(worker1Claim.run.status, "running");
+
+        // Concurrent attempt by worker_2 must return null
+        const worker2Claim = await claimDueAgentJob("worker_2", 300_000, agent.id);
+        assert.equal(worker2Claim, null);
+
+        // Complete successful run for worker_1
+        const completed = await completeAgentRunSuccess(agent.id, worker1Claim.run.id, 60);
+        assert.equal(completed.agent.processingStatus, "idle");
+        assert.equal(completed.agent.lockedBy, null);
+        assert.equal(completed.agent.consecutiveFailures, 0);
+        assert.equal(completed.run.status, "succeeded");
+        assert.ok(new Date(completed.agent.nextRunAt) > new Date());
+      });
+
+      await context.test("handles run failure and calculates exponential backoff", async () => {
+        const agent = await createAgent({ name: "Failure Backoff Test", domain: "Resilience" });
+        createdAgentIds.push(agent.id);
+
+        const claim = await claimDueAgentJob("worker_1", 300_000, agent.id);
+        assert.ok(claim);
+
+        const failed = await completeAgentRunFailure(
+          agent.id,
+          claim.run.id,
+          "discovery",
+          "Network timeout testing.",
+          30
+        );
+
+        assert.equal(failed.agent.processingStatus, "idle");
+        assert.equal(failed.agent.consecutiveFailures, 1);
+        assert.equal(failed.run.status, "failed");
+        assert.equal(failed.run.errorSummary, "Network timeout testing.");
+        // Next run should be scheduled in the future with backoff
+        assert.ok(new Date(failed.agent.nextRunAt) > new Date());
+      });
+
+      await context.test("recovers stale locks for stranded running agents", async () => {
+        const agent = await createAgent({ name: "Stale Lock Test", domain: "Recovery" });
+        createdAgentIds.push(agent.id);
+
+        // Manually simulate a stale lock in DB
+        await pool.query(
+          "UPDATE agents SET processing_status = 'running', locked_at = NOW() - INTERVAL '10 minutes', locked_by = 'crashed_worker' WHERE id = $1",
+          [agent.id]
+        );
+
+        const recoveredCount = await recoverStaleAgentLocks(300_000);
+        assert.ok(recoveredCount >= 1);
+
+        const refreshed = await getAgentById(agent.id);
+        assert.equal(refreshed?.processingStatus, "idle");
+        assert.equal(refreshed?.lockedBy, null);
+      });
+
+      await context.test("processes next job end-to-end via worker loop step", async () => {
+        const agent = await createAgent({ name: "Worker Loop Test", domain: "End-to-End" });
+        createdAgentIds.push(agent.id);
+
+        const processed = await processNextJob(agent.id);
+        assert.equal(processed, true);
+
+        const activity = await getRecentAgentActivity(agent.id);
+        assert.ok(activity.length >= 1);
+        assert.equal(activity[0].status, "succeeded");
       });
     } finally {
       if (createdAgentIds.length > 0) {

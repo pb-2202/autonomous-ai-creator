@@ -10,6 +10,7 @@ import type {
   EditorialDecision,
   FeedPost,
   Persona,
+  ProcessingStatus,
   TopicStatus
 } from "./types.ts";
 
@@ -18,11 +19,19 @@ type AgentRow = {
   persona_name: string;
   persona_domain: string;
   active: boolean;
+  next_run_at: Date;
+  processing_status: ProcessingStatus;
+  locked_at: Date | null;
+  locked_by: string | null;
+  consecutive_failures: number;
   initialized_at: Date;
   last_run_at: Date | null;
   created_at: Date;
   updated_at: Date;
 };
+
+const AGENT_SELECT_FIELDS =
+  "id, persona_name, persona_domain, active, next_run_at, processing_status, locked_at, locked_by, consecutive_failures, initialized_at, last_run_at, created_at, updated_at";
 
 type TopicRow = {
   id: string;
@@ -131,6 +140,11 @@ function toAgent(row: AgentRow): Agent {
     id: row.id,
     persona: { name: row.persona_name, domain: row.persona_domain },
     active: row.active,
+    nextRunAt: row.next_run_at.toISOString(),
+    processingStatus: row.processing_status,
+    lockedAt: row.locked_at?.toISOString() ?? null,
+    lockedBy: row.locked_by ?? null,
+    consecutiveFailures: row.consecutive_failures,
     initializedAt: row.initialized_at.toISOString(),
     lastRunAt: row.last_run_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString(),
@@ -207,9 +221,9 @@ export async function createAgent(persona: Persona): Promise<Agent> {
   const domain = requiredText(persona.domain, "Persona domain", 160);
   const id = createId("agent");
   const result = await database().query<AgentRow>(
-    `INSERT INTO agents (id, persona_name, persona_domain)
-     VALUES ($1, $2, $3)
-     RETURNING id, persona_name, persona_domain, active, initialized_at, last_run_at, created_at, updated_at`,
+    `INSERT INTO agents (id, persona_name, persona_domain, next_run_at, processing_status, consecutive_failures)
+     VALUES ($1, $2, $3, NOW(), 'idle', 0)
+     RETURNING ${AGENT_SELECT_FIELDS}`,
     [id, name, domain]
   );
 
@@ -218,7 +232,7 @@ export async function createAgent(persona: Persona): Promise<Agent> {
 
 export async function getAgentById(agentId: string): Promise<Agent | null> {
   const result = await database().query<AgentRow>(
-    `SELECT id, persona_name, persona_domain, active, initialized_at, last_run_at, created_at, updated_at
+    `SELECT ${AGENT_SELECT_FIELDS}
      FROM agents
      WHERE id = $1`,
     [agentId]
@@ -232,11 +246,202 @@ export async function updateAgentRunStatus(agentId: string, lastRunAt = new Date
     `UPDATE agents
      SET last_run_at = $2, updated_at = NOW()
      WHERE id = $1
-     RETURNING id, persona_name, persona_domain, active, initialized_at, last_run_at, created_at, updated_at`,
+     RETURNING ${AGENT_SELECT_FIELDS}`,
     [agentId, lastRunAt]
   );
 
   return result.rows[0] ? toAgent(result.rows[0]) : null;
+}
+
+export async function claimDueAgentJob(
+  workerId: string,
+  lockTimeoutMs = 300_000,
+  agentId?: string
+): Promise<{ agent: Agent; run: AgentRun } | null> {
+  return withTransaction(async (client: PoolClient) => {
+    const staleThreshold = new Date(Date.now() - lockTimeoutMs);
+    const queryParams: unknown[] = [staleThreshold];
+    let agentFilter = "";
+
+    if (agentId) {
+      queryParams.push(agentId);
+      agentFilter = "AND id = $2";
+    }
+
+    const selectResult = await client.query<AgentRow>(
+      `SELECT ${AGENT_SELECT_FIELDS}
+       FROM agents
+       WHERE active = TRUE
+         ${agentFilter}
+         AND (
+           (processing_status = 'idle' AND next_run_at <= NOW())
+           OR
+           (processing_status = 'running' AND locked_at IS NOT NULL AND locked_at < $1)
+         )
+       ORDER BY next_run_at ASC
+       LIMIT 1
+       FOR UPDATE SKIP LOCKED`,
+      queryParams
+    );
+
+    if (selectResult.rows.length === 0) {
+      return null;
+    }
+
+    const agentRow = selectResult.rows[0];
+    const runId = createId("run");
+    const startedAt = new Date();
+
+    const updateResult = await client.query<AgentRow>(
+      `UPDATE agents
+       SET processing_status = 'running',
+           locked_at = $2,
+           locked_by = $3,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING ${AGENT_SELECT_FIELDS}`,
+      [agentRow.id, startedAt, workerId]
+    );
+
+    const runResult = await client.query<AgentRunRow>(
+      `INSERT INTO agent_runs (id, agent_id, status, stage, started_at)
+       VALUES ($1, $2, 'running', 'claim', $3)
+       RETURNING id, agent_id, status, stage, selected_topic_id, published_post_id, error_summary, started_at, finished_at`,
+      [runId, agentRow.id, startedAt]
+    );
+
+    return {
+      agent: toAgent(updateResult.rows[0]),
+      run: toAgentRun(runResult.rows[0])
+    };
+  });
+}
+
+export async function completeAgentRunSuccess(
+  agentId: string,
+  runId: string,
+  intervalSeconds: number,
+  stage = "complete"
+): Promise<{ agent: Agent; run: AgentRun }> {
+  return withTransaction(async (client: PoolClient) => {
+    const finishedAt = new Date();
+    const nextRunAt = new Date(finishedAt.getTime() + Math.max(intervalSeconds, 1) * 1000);
+
+    const agentResult = await client.query<AgentRow>(
+      `UPDATE agents
+       SET processing_status = 'idle',
+           locked_at = NULL,
+           locked_by = NULL,
+           consecutive_failures = 0,
+           last_run_at = $2,
+           next_run_at = $3,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING ${AGENT_SELECT_FIELDS}`,
+      [agentId, finishedAt, nextRunAt]
+    );
+
+    if (agentResult.rows.length === 0) {
+      throw new Error(`Agent ${agentId} not found when completing successful run.`);
+    }
+
+    const runResult = await client.query<AgentRunRow>(
+      `UPDATE agent_runs
+       SET status = 'succeeded',
+           stage = $2,
+           finished_at = $3
+       WHERE id = $1
+       RETURNING id, agent_id, status, stage, selected_topic_id, published_post_id, error_summary, started_at, finished_at`,
+      [runId, stage, finishedAt]
+    );
+
+    if (runResult.rows.length === 0) {
+      throw new Error(`Agent run ${runId} not found when completing successful run.`);
+    }
+
+    return {
+      agent: toAgent(agentResult.rows[0]),
+      run: toAgentRun(runResult.rows[0])
+    };
+  });
+}
+
+export async function completeAgentRunFailure(
+  agentId: string,
+  runId: string,
+  stage: string,
+  errorSummary: string,
+  baseIntervalSeconds: number
+): Promise<{ agent: Agent; run: AgentRun }> {
+  return withTransaction(async (client: PoolClient) => {
+    const finishedAt = new Date();
+    const safeError = requiredText(errorSummary, "Error summary", 500);
+
+    const agentFetch = await client.query<{ consecutive_failures: number }>(
+      `SELECT consecutive_failures FROM agents WHERE id = $1 FOR UPDATE`,
+      [agentId]
+    );
+
+    if (agentFetch.rows.length === 0) {
+      throw new Error(`Agent ${agentId} not found when completing failed run.`);
+    }
+
+    const currentFailures = agentFetch.rows[0].consecutive_failures;
+    const newFailures = currentFailures + 1;
+    const backoffMultiplier = Math.pow(2, Math.min(newFailures - 1, 6));
+    const backoffSeconds = Math.max(baseIntervalSeconds, 1) * backoffMultiplier;
+    const nextRunAt = new Date(finishedAt.getTime() + backoffSeconds * 1000);
+
+    const agentResult = await client.query<AgentRow>(
+      `UPDATE agents
+       SET processing_status = 'idle',
+           locked_at = NULL,
+           locked_by = NULL,
+           consecutive_failures = $2,
+           next_run_at = $3,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING ${AGENT_SELECT_FIELDS}`,
+      [agentId, newFailures, nextRunAt]
+    );
+
+    const runResult = await client.query<AgentRunRow>(
+      `UPDATE agent_runs
+       SET status = 'failed',
+           stage = $2,
+           error_summary = $3,
+           finished_at = $4
+       WHERE id = $1
+       RETURNING id, agent_id, status, stage, selected_topic_id, published_post_id, error_summary, started_at, finished_at`,
+      [runId, stage, safeError, finishedAt]
+    );
+
+    if (runResult.rows.length === 0) {
+      throw new Error(`Agent run ${runId} not found when completing failed run.`);
+    }
+
+    return {
+      agent: toAgent(agentResult.rows[0]),
+      run: toAgentRun(runResult.rows[0])
+    };
+  });
+}
+
+export async function recoverStaleAgentLocks(lockTimeoutMs = 300_000): Promise<number> {
+  const staleThreshold = new Date(Date.now() - lockTimeoutMs);
+  const result = await database().query(
+    `UPDATE agents
+     SET processing_status = 'idle',
+         locked_at = NULL,
+         locked_by = NULL,
+         updated_at = NOW()
+     WHERE processing_status = 'running'
+       AND locked_at IS NOT NULL
+       AND locked_at < $1`,
+    [staleThreshold]
+  );
+
+  return result.rowCount ?? 0;
 }
 
 export async function saveDiscoveredTopic(input: SaveDiscoveredTopicInput): Promise<DiscoveredTopic> {

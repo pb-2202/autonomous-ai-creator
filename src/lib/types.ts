@@ -3,10 +3,17 @@ export type Persona = {
   domain: string;
 };
 
+export type ProcessingStatus = "idle" | "running";
+
 export type Agent = {
   id: string;
   persona: Persona;
   active: boolean;
+  nextRunAt: string;
+  processingStatus: ProcessingStatus;
+  lockedAt: string | null;
+  lockedBy: string | null;
+  consecutiveFailures: number;
   initializedAt: string;
   lastRunAt: string | null;
   createdAt: string;

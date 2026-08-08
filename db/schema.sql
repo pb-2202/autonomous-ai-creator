@@ -3,6 +3,11 @@ CREATE TABLE IF NOT EXISTS agents (
   persona_name TEXT NOT NULL,
   persona_domain TEXT NOT NULL,
   active BOOLEAN NOT NULL DEFAULT TRUE,
+  next_run_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  processing_status TEXT NOT NULL DEFAULT 'idle' CHECK (processing_status IN ('idle', 'running')),
+  locked_at TIMESTAMPTZ,
+  locked_by TEXT,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
   initialized_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_run_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -13,6 +18,11 @@ CREATE TABLE IF NOT EXISTS agents (
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS persona_name TEXT;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS persona_domain TEXT;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS active BOOLEAN;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS next_run_at TIMESTAMPTZ;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS processing_status TEXT;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS locked_by TEXT;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS consecutive_failures INTEGER;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS initialized_at TIMESTAMPTZ;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS last_run_at TIMESTAMPTZ;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
@@ -22,19 +32,31 @@ SET
   persona_name = COALESCE(persona_name, 'Legacy agent'),
   persona_domain = COALESCE(persona_domain, 'Technology'),
   active = COALESCE(active, TRUE),
+  next_run_at = COALESCE(next_run_at, initialized_at, created_at, NOW()),
+  processing_status = COALESCE(processing_status, 'idle'),
+  consecutive_failures = COALESCE(consecutive_failures, 0),
   initialized_at = COALESCE(initialized_at, created_at, NOW()),
   updated_at = COALESCE(updated_at, created_at, NOW())
 WHERE persona_name IS NULL
    OR persona_domain IS NULL
    OR active IS NULL
+   OR next_run_at IS NULL
+   OR processing_status IS NULL
+   OR consecutive_failures IS NULL
    OR initialized_at IS NULL
    OR updated_at IS NULL;
 
 ALTER TABLE agents ALTER COLUMN persona_name SET NOT NULL;
 ALTER TABLE agents ALTER COLUMN persona_domain SET NOT NULL;
 ALTER TABLE agents ALTER COLUMN active SET NOT NULL;
+ALTER TABLE agents ALTER COLUMN next_run_at SET NOT NULL;
+ALTER TABLE agents ALTER COLUMN processing_status SET NOT NULL;
+ALTER TABLE agents ALTER COLUMN consecutive_failures SET NOT NULL;
 ALTER TABLE agents ALTER COLUMN initialized_at SET NOT NULL;
 ALTER TABLE agents ALTER COLUMN updated_at SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS agents_worker_claim_index
+  ON agents (active, processing_status, next_run_at);
 
 CREATE TABLE IF NOT EXISTS discovered_topics (
   id TEXT PRIMARY KEY,
