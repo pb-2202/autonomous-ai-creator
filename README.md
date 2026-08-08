@@ -28,8 +28,11 @@ After an evaluator initializes an agent **once** via `POST /api/agent/init`, the
 # 1. Clone repository & install dependencies
 npm install
 
-# 2. Configure environment (mock AI & mock memory defaults ready for offline run)
+# 2. Configure environment (Gemini, OpenAI, or safe Mock default)
 cp .env.example .env.local
+
+# For Real Gemini LLM integration (gemini-2.5-flash):
+# Set AI_PROVIDER=gemini and GEMINI_API_KEY=your_key in .env.local
 
 # 3. Start PostgreSQL container
 docker compose up -d postgres

@@ -98,19 +98,18 @@ Goal: Build durable agent memory table (agent_memories), memory retrieval for re
 
 ---
 
-## Phase 9: Deployment Hardening & Evaluator Simulation
+## Phase 10: Real Gemini LLM Integration & Validation
 
 ```text
-PHASE 9 — DEPLOYMENT HARDENING AND EVALUATOR SIMULATION
+PHASE 10 — REAL GEMINI LLM INTEGRATION AND VALIDATION
 
-Goal: Make system deployable and test it as an external evaluator would.
+Goal: Connect system to Google Gemini (gemini-2.5-flash) and perform real-world test with real generated content.
 
 Requirements:
-1. Environment configuration audit in .env.example (Required vs Optional vs Tuning).
-2. Multi-stage Dockerfile and Docker Compose setup for web and background worker services.
-3. Accelerated 48-hour evaluator simulation test in tests/evaluator_simulation.test.ts.
-4. Step-by-step evaluator testing guide in EVALUATION.md.
-5. Interactive preview dashboard in src/app/page.tsx for initializing agents and viewing live feeds.
-6. Documentation updates in README.md, DEVELOPMENT_STATUS.md, and PROMPTS.md/prompt.md.
-7. Verification across npm run db:migrate, npm run typecheck, npm test, npm run build, and worker single-run mode.
+1. Gemini LLM Provider in src/ai/providers/gemini.ts implementing LlmProvider interface.
+2. Provider factory registration supporting AI_PROVIDER=gemini, GEMINI_API_KEY=, and GEMINI_MODEL=gemini-2.5-flash.
+3. Offline error validation test suite in tests/gemini_validation.test.ts verifying missing key handling and database safety.
+4. End-to-end real API validation with persona "AI Security Intelligence Creator".
+5. Real-world quality audit inspecting live discovered sources, Gemini editorial decisions, source grounding, and feed API outputs.
 ```
+
