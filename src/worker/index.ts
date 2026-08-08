@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { AiService } from "../ai/service.ts";
+import { discoverTopics } from "../discovery/service.ts";
 import {
   claimDueAgentJob,
   completeAgentRunFailure,
@@ -27,7 +28,7 @@ export type CyclePipelineContext = {
 
 /**
  * Modular autonomous execution pipeline.
- * Phase 4 initializes the AiService & persona policy layer cleanly within the worker cycle.
+ * Phase 5 performs live web discovery, deduplicates, and persists discovered topics.
  */
 export async function runAgentCycle(context: CyclePipelineContext): Promise<{ stage: string }> {
   const { agent } = context;
@@ -37,18 +38,32 @@ export async function runAgentCycle(context: CyclePipelineContext): Promise<{ st
   const greeting = await aiService.generatePersonaGreeting();
 
   console.info(
-    `[Worker ${WORKER_ID}] Autonomous intelligence cycle active for persona "${aiService.persona.name}" (${agent.id}). Tagline: "${aiService.persona.tagline}".`
+    `[Worker ${WORKER_ID}] Autonomous cycle active for persona "${aiService.persona.name}" (${agent.id}). Tagline: "${aiService.persona.tagline}".`
   );
   console.info(`[Worker ${WORKER_ID}] Persona Readiness Check: ${greeting}`);
 
-  // Step 1: Discover topics (Placeholder for Phase 5)
+  // Step 1: Discover topics from live information sources (Phase 5)
+  console.info(`[Worker ${WORKER_ID}] Initiating live web topic discovery for agent ${agent.id}...`);
+  const discoveryResult = await discoverTopics(agent);
+
+  console.info(
+    `[Worker ${WORKER_ID}] Discovery completed: ${discoveryResult.sourcesSucceeded}/${discoveryResult.sourcesAttempted} sources succeeded. ` +
+      `Discovered: ${discoveryResult.topicsDiscovered}, Duplicates Ignored: ${discoveryResult.duplicatesIgnored}, Persisted: ${discoveryResult.topicsPersisted}.`
+  );
+
+  if (discoveryResult.failedSources.length > 0) {
+    for (const failed of discoveryResult.failedSources) {
+      console.warn(`[Worker ${WORKER_ID}] Source failure warning: ${failed.name} (${failed.url}) - ${failed.error}`);
+    }
+  }
+
   // Step 2: Evaluate topics (Placeholder for Phase 6)
   // Step 3: Select top topic (Placeholder for Phase 6)
   // Step 4: Generate post text & rationale (Placeholder for Phase 7)
   // Step 5: Check memory / Breeth sync (Placeholder for Phase 8)
   // Step 6: Publish post and sources (Placeholder for Phase 7)
 
-  return { stage: "complete" };
+  return { stage: "discovery" };
 }
 
 export async function processNextJob(targetAgentId?: string): Promise<boolean> {

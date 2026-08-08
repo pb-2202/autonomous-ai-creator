@@ -12,13 +12,17 @@
   - Persona Engine (`src/ai/persona/builder.ts`): Rich persona definition builder expanding `{ name, domain }` into identity, mission, editorial stance ("New does not automatically mean important"), interests, and persona system prompts.
   - LLM Provider Abstraction (`src/ai/providers/`): `LlmProvider` interface supporting `generateText` and `generateStructured<T>`. Includes `MockLlmProvider` (safe default for local dev/testing) and native-fetch `OpenAiLlmProvider`.
   - Response Validation & Schemas (`src/ai/schemas/validators.ts`): Typed JSON block parsers and strict range/field validators for `EditorialEvaluationResult` and `PostGenerationResult`.
-  - High-Level AI Service (`src/ai/service.ts`): `AiService` orchestrating persona policy and provider execution for candidate topic evaluation and post drafting.
-  - Safe Worker Integration: Connected `AiService` in `runAgentCycle()` for diagnostic persona readiness checks without live web calls or real post publishing.
-  - Dedicated AI Test Suite (`tests/ai.test.ts`): Unit and integration tests covering persona construction, prompt formatting, mock responses, schema validation, OpenAI missing key error handling, and `AiService` evaluation/drafting.
+  - High-Level AI Service (`src/ai/service.ts`): `AiService` orchestrating persona policy and provider execution.
+- **Phase 5 Live Web Discovery**:
+  - Discovery Sources (`src/discovery/config.ts`): Configured 4 live public sources (OpenAI News, Google DeepMind Blog, AWS Machine Learning Blog, TechCrunch AI).
+  - Dependency-Free HTTP Fetcher & Parser (`src/discovery/fetcher.ts`, `parser.ts`): Signal-timeout HTTP fetcher with regex XML parser supporting RSS `<item>` and Atom `<entry>` feeds.
+  - Normalization & Fingerprinting (`src/discovery/normalizer.ts`): HTML tag stripping, whitespace trimming, tracking parameter stripping (`utm_*`), and SHA-256 fingerprint generation.
+  - Discovery Service (`src/discovery/service.ts`): Orchestrates feed retrieval, error isolation (failing sources do not abort discovery), local & DB deduplication against `discovered_topics`, and database persistence.
+  - Worker Integration (`src/worker/index.ts`): Executes `discoverTopics(agent)` during worker runs and records run status in stage `'discovery'`.
+  - Test Suite (`tests/discovery.test.ts`): Comprehensive unit and integration test suite covering feed parsing, URL/text normalization, deduplication, error isolation, DB persistence, and worker integration.
 
 ## Remaining (Future Phases)
 
-- Phase 5: Live web/topic discovery pipeline (RSS/APIs, source URL validation, fingerprint deduplication).
 - Phase 6: AI editorial decision engine & deliberate rejection logging.
 - Phase 7: Source-grounded post & rationale generation + atomic publishing.
 - Phase 8: Post memory retrieval & Breeth outbox sync.
@@ -29,7 +33,8 @@
 - `npm run db:migrate` schema check passed.
 - `npm run typecheck` passes cleanly with 0 TypeScript errors.
 - `npm run build` generates production Next.js build.
-- `npm test` passes all 22 test cases across persistence and AI test suites.
-- `npm run worker` single-run mode executes diagnostic intelligence cycle using `MockLlmProvider`.
+- `npm test` passes all 30 test cases across persistence, AI, and discovery test suites.
+- `npm run worker` single-run mode executes live web discovery cycle, retrieving and persisting live tech topics to PostgreSQL.
+
 
 
